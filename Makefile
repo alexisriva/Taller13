@@ -3,4 +3,4 @@ pc: pc.c
 
 .PHONY: clean
 clean:
-	rm -rf hilos
+	rm -rf pc
