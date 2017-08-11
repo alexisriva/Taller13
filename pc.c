@@ -1,10 +1,12 @@
 #include <stdio.h>
-#include <math.h>
 #include <time.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <sys/time.h>
 #include <pthread.h>
 
+double timeProd = 0;
+double timeCons = 0;
 int queueSize = 0;
 int totalItems = 0;
 int queue = 0;
@@ -23,14 +25,18 @@ void *producer(void *arg) {
 		while (queue == queueSize)
 			pthread_cond_wait(&cvprod,&mutex);
 
+		usleep(timeProd);
+
 		queue++;
 		produced++;
+
+		printf("Productor %d ha producido 1 item, tamaño cola = %d\n",*((int *)arg),queue);
 
 		if (produced == totalItems)
 			exit = 0;
 
-		pthread_cond_signal(&cvcons);
 		pthread_mutex_unlock(&mutex);
+		pthread_cond_broadcast(&cvcons);
 	}
 
 	return (void *)0;
@@ -44,13 +50,17 @@ void *consumer(void *arg) {
 		while (queue == 0)
 			pthread_cond_wait(&cvcons,&mutex);
 
+		usleep(timeCons);
+
 		queue--;
+
+		printf("Consumidor %d ha consumido 1 item, tamaño cola = %d\n",*((int *)arg),queue);
 
 		if (produced == totalItems && queue == 0)
 			exit = 0;
 
-		pthread_cond_signal(&cvprod);
 		pthread_mutex_unlock(&mutex);
+		pthread_cond_broadcast(&cvprod);
 	}
 
 	return (void *)0;
@@ -58,8 +68,6 @@ void *consumer(void *arg) {
 
 //Main
 int main(int argc, char *argv[]) {
-	double timeProd = 0;
-	double timeCons = 0;
 	int numOfThreadsProd = 0;
 	int numOfThreadsCons = 0;
 	
@@ -67,9 +75,9 @@ int main(int argc, char *argv[]) {
 		printf("Uso: ./pc <num_hilos_prod> <tiempo_prod> <num_hilos_cons> <tiempo_cons> <tam_cola> <total_items>\n");
 	else {
 		numOfThreadsProd = atoi(argv[1]);
-		timeProd = strtod(argv[2], NULL);
+		timeProd = strtod(argv[2], NULL)/1000000;
 		numOfThreadsCons = atoi(argv[3]);
-		timeCons = strtod(argv[4], NULL);
+		timeCons = strtod(argv[4], NULL)/1000000;
 		queueSize = atoi(argv[5]);
 		totalItems = atoi(argv[6]);
 
@@ -84,15 +92,15 @@ int main(int argc, char *argv[]) {
 		pthread_t *idsc = (pthread_t *)malloc(numOfThreadsCons*sizeof(pthread_t));
 
 		for (int prod=0;prod<numOfThreadsProd;prod++)
-			pthread_create(&idsp[prod],NULL,producer,NULL);
+			pthread_create(&idsp[prod],NULL,producer,&prod);
 
 		for (int cons=0;cons<numOfThreadsCons;cons++)
-			pthread_create(&idsc[cons],NULL,consumer,NULL);
+			pthread_create(&idsc[cons],NULL,consumer,&cons);
 
 		for (int prod=0;prod<numOfThreadsProd;prod++)
-			pthread_join(&idsp[prod],NULL);
+			pthread_join(idsp[prod],NULL);
 
 		for (int cons=0;cons<numOfThreadsCons;cons++)
-			pthread_join(&idsc[cons],NULL);
+			pthread_join(idsc[cons],NULL);
 	}
 }
