@@ -18,49 +18,59 @@ pthread_cond_t cvprod = PTHREAD_COND_INITIALIZER;
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
 void *producer(void *arg) {
-	int exit = 1;
-	while (exit) {
+	//int exit = 1;
+	while (/*exit*/1) {
 		pthread_mutex_lock(&mutex);
 
 		while (queue == queueSize)
 			pthread_cond_wait(&cvprod,&mutex);
 
-		usleep(timeProd);
+		if (produced < totalItems && queue < queueSize) {
+			usleep(timeProd);
 
-		queue++;
-		produced++;
+			queue++;
+			produced++;
 
-		printf("Productor %d ha producido 1 item, tamaño cola = %d\n",*((int *)arg),queue);
+			printf("Productor %d ha producido 1 item, tamaño cola = %d, items producidos = %d\n",*((int *)arg),queue,produced);
 
-		if (produced == totalItems)
-			exit = 0;
+			pthread_mutex_unlock(&mutex);
+			pthread_cond_broadcast(&cvcons);
+		} else {
+			//exit = 0;
 
-		pthread_mutex_unlock(&mutex);
-		pthread_cond_broadcast(&cvcons);
+			pthread_mutex_unlock(&mutex);
+			pthread_cond_broadcast(&cvcons);
+			break;
+		}
 	}
 
 	return (void *)0;
 }
 
 void *consumer(void *arg) {
-	int exit = 1;
-	while (exit) {
+	//int exit = 1;
+	while (/*exit*/1) {
 		pthread_mutex_lock(&mutex);
 
 		while (queue == 0)
 			pthread_cond_wait(&cvcons,&mutex);
 
-		usleep(timeCons);
+		if (produced < totalItems || queue > 0) {
+			usleep(timeCons);
 
-		queue--;
+			queue--;
 
-		printf("Consumidor %d ha consumido 1 item, tamaño cola = %d\n",*((int *)arg),queue);
+			printf("Consumidor %d ha consumido 1 item, tamaño cola = %d\n",*((int *)arg),queue);
 
-		if (produced == totalItems && queue == 0)
-			exit = 0;
+			pthread_mutex_unlock(&mutex);
+			pthread_cond_broadcast(&cvprod);
+		} else {
+			//exit = 0;
 
-		pthread_mutex_unlock(&mutex);
-		pthread_cond_broadcast(&cvprod);
+			pthread_mutex_unlock(&mutex);
+			pthread_cond_broadcast(&cvprod);
+			break;
+		}
 	}
 
 	return (void *)0;
@@ -102,5 +112,8 @@ int main(int argc, char *argv[]) {
 
 		for (int cons=0;cons<numOfThreadsCons;cons++)
 			pthread_join(idsc[cons],NULL);
+
+		while (1)
+			if (queue == 0) break;
 	}
 }
